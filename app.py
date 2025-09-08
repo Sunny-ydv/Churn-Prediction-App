@@ -7,9 +7,16 @@ import plotly.graph_objects as go
 with open('model/churn_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
-# Load the scaler
-with open('model/scaler.pkl', 'rb') as file:    # <-- Added scaler loading
-    scaler = pickle.load(file)
+# Load scaler
+with open('model/scaler.pkl', 'rb') as f:
+    scaler = pickle.load(f)
+
+# Transform input data
+input_data_scaled = scaler.transform(input_data)
+
+# Predict using scaled input
+prediction = model.predict(input_data_scaled)[0]
+prediction_prob = model.predict_proba(input_data_scaled)[0][1]
 
 # Page Config
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
