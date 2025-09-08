@@ -127,15 +127,3 @@ if st.button("🚀 Predict Churn"):
 
     st.plotly_chart(fig, use_container_width=True)
 
-# ---------- Action Buttons ----------
-st.markdown("<div class='segment-buttons'>", unsafe_allow_html=True)
-
-if st.button("Create Segment"):
-    st.success("Segment created successfully!")
-    # Yahan segment creation ka logic daal sakte hain
-
-if st.button("Create Campaign"):
-    st.success("Campaign created successfully!")
-    # Yahan campaign creation ka logic daal sakte hain
-
-st.markdown("</div>", unsafe_allow_html=True)
