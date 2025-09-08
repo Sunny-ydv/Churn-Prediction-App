@@ -7,6 +7,10 @@ import plotly.graph_objects as go
 with open('model/churn_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
+# Load the scaler
+with open('model/scaler.pkl', 'rb') as file:    # <-- Added scaler loading
+    scaler = pickle.load(file)
+
 # Page Config
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 
@@ -79,8 +83,11 @@ if st.button("🚀 Predict Churn"):
                             is_active_member,
                             estimated_salary]])
 
-    prediction = model.predict(input_data)[0]
-    prediction_prob = model.predict_proba(input_data)[0][1]  # Probability of class 1
+    # Scale the input data before prediction
+    input_data_scaled = scaler.transform(input_data)  # <-- New line to scale input
+
+    prediction = model.predict(input_data_scaled)[0]  # Use scaled input here
+    prediction_prob = model.predict_proba(input_data_scaled)[0][1]  # Probability of class 1
 
     # Show message
     if prediction == 1:
