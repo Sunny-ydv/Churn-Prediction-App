@@ -54,3 +54,53 @@ if st.button("🚀 Predict Churn", key="predict_button"):
         st.error("🔴 The customer is **likely to churn**.")
     else:
         st.success("🟢 The customer is **not likely to churn**.")
+
+import plotly.graph_objects as go
+
+def show_gauge(prediction_prob):
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = prediction_prob * 100,
+        title = {'text': "Churn Risk (%)"},
+        gauge = {
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "purple"},
+            'steps': [
+                {'range': [0, 30], 'color': "lightgreen"},
+                {'range': [30, 70], 'color': "orange"},
+                {'range': [70, 100], 'color': "red"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': prediction_prob * 100}
+        }
+    ))
+    st.plotly_chart(fig, use_container_width=True)
+if st.button("🚀 Predict Churn", key="predict_button"):
+    # Encoding
+    geography_map = {"France": 0, "Spain": 1, "Germany": 2}
+    gender_map = {"Male": 1, "Female": 0}
+
+    input_data = np.array([[credit_score,
+                            geography_map[geography],
+                            gender_map[gender],
+                            age,
+                            tenure,
+                            balance,
+                            num_products,
+                            has_credit_card,
+                            is_active_member,
+                            estimated_salary]])
+
+    prediction = model.predict(input_data)[0]
+    prediction_prob = model.predict_proba(input_data)[0][1]  # Probability of churn (class 1)
+
+    st.markdown("---")
+    if prediction == 1:
+        st.error("🔴 The customer is **likely to churn**.")
+    else:
+        st.success("🟢 The customer is **not likely to churn**.")
+
+    show_gauge(prediction_prob)
+
