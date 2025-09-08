@@ -1,6 +1,5 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import pickle
 import plotly.graph_objects as go
 
@@ -24,12 +23,16 @@ st.markdown("""
         height: 3em;
         width: 100%;
         margin-top: 10px;
+        cursor: pointer;
     }
     .segment-buttons button {
         background-color: #7A52FF;
         color: white;
         border-radius: 10px;
-        margin: 0 10px;
+        margin: 10px 10px 10px 0;
+        padding: 10px 20px;
+        font-weight: bold;
+        cursor: pointer;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -54,6 +57,9 @@ with col2:
     has_credit_card = st.radio("Has Credit Card?", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
     is_active_member = st.radio("Is Active Member?", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
     estimated_salary = st.number_input("Estimated Salary", min_value=0.0, value=50000.0, step=1000.0)
+
+status = None
+prediction_prob = 0
 
 # ---------- Prediction ----------
 if st.button("🚀 Predict Churn"):
@@ -107,16 +113,15 @@ if st.button("🚀 Predict Churn"):
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # Buttons
-import streamlit as st
+# ---------- Action Buttons ----------
+st.markdown("<div class='segment-buttons'>", unsafe_allow_html=True)
 
-# Button 1: Create Segment
 if st.button("Create Segment"):
     st.success("Segment created successfully!")
-    # Yahan aap apna segment creation logic likh sakte ho
+    # Yahan segment creation ka logic daal sakte hain
 
-# Button 2: Create Campaign
 if st.button("Create Campaign"):
     st.success("Campaign created successfully!")
-    # Yahan aap apna campaign creation logic likh sakte ho
+    # Yahan campaign creation ka logic daal sakte hain
 
+st.markdown("</div>", unsafe_allow_html=True)
