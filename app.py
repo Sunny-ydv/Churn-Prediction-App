@@ -108,8 +108,15 @@ if st.button("🚀 Predict Churn"):
     st.plotly_chart(fig, use_container_width=True)
 
     # Buttons
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.button("🎯 Create Segment", key="segment_btn")
-    with col_b:
-        st.button("📣 Create Campaign", key="campaign_btn")
+import streamlit as st
+
+# Button 1: Create Segment
+if st.button("Create Segment"):
+    st.success("Segment created successfully!")
+    # Yahan aap apna segment creation logic likh sakte ho
+
+# Button 2: Create Campaign
+if st.button("Create Campaign"):
+    st.success("Campaign created successfully!")
+    # Yahan aap apna campaign creation logic likh sakte ho
+
