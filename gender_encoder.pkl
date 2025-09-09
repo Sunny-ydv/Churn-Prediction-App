@@ -1,0 +1,79 @@
+import pandas as pd
+import numpy as np
+import pickle
+import os
+import json
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+# ---------- Settings ----------
+MODEL_DIR = 'model'
+METRICS_FILE = os.path.join(MODEL_DIR, 'metrics.json')
+
+# ---------- Step 1: Load Data ----------
+data = pd.read_csv('Churn_Modelling.csv')
+
+# Encode Gender
+gender_encoder = LabelEncoder()
+data['Gender'] = gender_encoder.fit_transform(data['Gender'])
+
+# One-hot encode Geography
+data = pd.get_dummies(data, columns=['Geography'], drop_first=True)
+
+# Features and target
+X = data[['CreditScore', 'Gender', 'Age', 'Tenure', 'Balance',
+          'NumOfProducts', 'HasCrCard', 'IsActiveMember', 'EstimatedSalary',
+          'Geography_Germany', 'Geography_Spain']]
+y = data['Exited']
+
+# ---------- Step 2: Train-Test Split ----------
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# ---------- Step 3: Scale Features ----------
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# ---------- Step 4: Train New Model ----------
+model = LogisticRegression(max_iter=2000, class_weight='balanced')
+model.fit(X_train_scaled, y_train)
+
+# ---------- Step 5: Evaluate Model ----------
+y_pred = model.predict(X_test_scaled)
+new_accuracy = accuracy_score(y_test, y_pred)
+
+print("📈 New Model Accuracy:", new_accuracy)
+print(classification_report(y_test, y_pred))
+
+# ---------- Step 6: Check Previous Accuracy (if exists) ----------
+old_accuracy = 0.0
+if os.path.exists(METRICS_FILE):
+    with open(METRICS_FILE, 'r') as f:
+        metrics = json.load(f)
+        old_accuracy = metrics.get('accuracy', 0.0)
+
+print(f"📊 Previous Model Accuracy: {old_accuracy}")
+
+# ---------- Step 7: Replace Model Only If Improved ----------
+if new_accuracy >= old_accuracy:
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    with open(os.path.join(MODEL_DIR, 'churn_model.pkl'), 'wb') as f:
+        pickle.dump(model, f)
+
+    with open(os.path.join(MODEL_DIR, 'scaler.pkl'), 'wb') as f:
+        pickle.dump(scaler, f)
+
+    with open(os.path.join(MODEL_DIR, 'gender_encoder.pkl'), 'wb') as f:
+        pickle.dump(gender_encoder, f)
+
+    with open(METRICS_FILE, 'w') as f:
+        json.dump({'accuracy': new_accuracy}, f)
+
+    print("✅ New model saved (improved or equal accuracy).")
+else:
+    print("⛔ New model was worse. Keeping previous model.")
+
