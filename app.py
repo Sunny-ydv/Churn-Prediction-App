@@ -3,25 +3,16 @@ import numpy as np
 import pickle
 import plotly.graph_objects as go
 
-# Load the model
+# ---------- Load Model and Scaler ----------
 with open('model/churn_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
-# Load scaler
 with open('model/scaler.pkl', 'rb') as f:
     scaler = pickle.load(f)
 
-# Transform input data
-input_data_scaled = scaler.transform(input_data)
-
-# Predict using scaled input
-prediction = model.predict(input_data_scaled)[0]
-prediction_prob = model.predict_proba(input_data_scaled)[0][1]
-
-# Page Config
+# ---------- Page Config and Styling ----------
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 
-# ---------- Styling ----------
 st.markdown("""
     <style>
     .main {background-color: #f5f7fa;}
@@ -34,15 +25,6 @@ st.markdown("""
         height: 3em;
         width: 100%;
         margin-top: 10px;
-        cursor: pointer;
-    }
-    .segment-buttons button {
-        background-color: #7A52FF;
-        color: white;
-        border-radius: 10px;
-        margin: 10px 10px 10px 0;
-        padding: 10px 20px;
-        font-weight: bold;
         cursor: pointer;
     }
     </style>
@@ -63,19 +45,20 @@ with col1:
     tenure = st.slider("Tenure", 0, 10, 3)
 
 with col2:
-    balance = st.number_input("Balance", min_value=0.0, value=0.0, step=100.0)
+    balance = st.number_input("Balance", min_value=0.0, max_value=250000.0, value=0.0, step=100.0)
     num_products = st.selectbox("Number of Products", [1, 2, 3, 4])
     has_credit_card = st.radio("Has Credit Card?", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
     is_active_member = st.radio("Is Active Member?", [1, 0], format_func=lambda x: "Yes" if x == 1 else "No")
-    estimated_salary = st.number_input("Estimated Salary", min_value=0.0, value=50000.0, step=1000.0)
+    estimated_salary = st.number_input("Estimated Salary", min_value=0.0, max_value=200000.0, value=50000.0, step=1000.0)
 
-status = None
-prediction_prob = 0
+# ---------- Optional Warnings ----------
+if balance > 200000 or estimated_salary > 150000:
+    st.warning("⚠️ These input values are higher than typical training data. Prediction may be less accurate.")
 
 # ---------- Prediction ----------
 if st.button("🚀 Predict Churn"):
 
-    # Encode categorical
+    # Encode categorical variables
     geography_map = {"France": 0, "Spain": 1, "Germany": 2}
     gender_map = {"Male": 1, "Female": 0}
 
@@ -90,13 +73,20 @@ if st.button("🚀 Predict Churn"):
                             is_active_member,
                             estimated_salary]])
 
-    # Scale the input data before prediction
-    input_data_scaled = scaler.transform(input_data)  # <-- New line to scale input
+    # Scale the input data
+    input_data_scaled = scaler.transform(input_data)
 
-    prediction = model.predict(input_data_scaled)[0]  # Use scaled input here
+    # Prediction
+    prediction = model.predict(input_data_scaled)[0]
     prediction_prob = model.predict_proba(input_data_scaled)[0][1]  # Probability of class 1
 
-    # Show message
+    # Debugging info
+    with st.expander("🔍 See raw prediction data"):
+        st.write("Input Data:", input_data)
+        st.write("Scaled Data:", input_data_scaled)
+        st.write("Prediction Probability:", prediction_prob)
+
+    # Show result
     if prediction == 1:
         st.error("🔴 This customer is **likely to churn**.")
         status = "High Risk"
@@ -104,12 +94,12 @@ if st.button("🚀 Predict Churn"):
         st.success("🟢 This customer is **not likely to churn**.")
         status = "Low Risk"
 
-    # Gauge chart
+    # ---------- Gauge Chart ----------
     fig = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=round(prediction_prob * 100, 2),
         delta={'reference': 50, 'increasing': {'color': "red"}, 'decreasing': {'color': "green"}},
-        title={'text': "Prediction Quality (%)", 'font': {'size': 24}},
+        title={'text': "Prediction Probability (%)", 'font': {'size': 24}},
         gauge={
             'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkgray"},
             'bar': {'color': "#6C63FF"},
@@ -126,4 +116,3 @@ if st.button("🚀 Predict Churn"):
     ))
 
     st.plotly_chart(fig, use_container_width=True)
-
