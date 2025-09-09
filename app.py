@@ -69,7 +69,6 @@ if st.button("🚀 Predict Churn"):
 
     # Prepare input data
     if use_encoder:
-        # If OneHotEncoder was used in training
         categorical = [[geography, gender]]
         categorical_encoded = encoder.transform(categorical).toarray()
 
@@ -79,7 +78,6 @@ if st.button("🚀 Predict Churn"):
         final_input = np.hstack((numerical, categorical_encoded))
 
     else:
-        # Manual mapping (must match training!)
         geography_map = {"France": 0, "Spain": 1, "Germany": 2}
         gender_map = {"Male": 1, "Female": 0}
 
@@ -99,7 +97,7 @@ if st.button("🚀 Predict Churn"):
 
     # Prediction
     prediction = model.predict(input_scaled)[0]
-    prediction_prob = model.predict_proba(input_scaled)[0][1]  # Probability of class 1
+    prediction_prob = model.predict_proba(input_scaled)[0][1]  # Probability of churn (class 1)
 
     # Debugging info
     with st.expander("🔍 See raw prediction data"):
@@ -115,58 +113,64 @@ if st.button("🚀 Predict Churn"):
         st.success("🟢 This customer is **not likely to churn**.")
         status = "Low Risk"
 
-    # ---------- Animated Gauge Chart ----------
+    # ---------- Animated Analog Gauge (Needle) ----------
     final_value = round(prediction_prob * 100, 2)
 
-    steps = np.linspace(0, final_value, num=30)  # 30 frames
-    frames = [go.Frame(data=[go.Indicator(
-        mode="gauge+number",
-        value=val,
-        title={'text': "Prediction Probability (%)", 'font': {'size': 24}},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': "#6C63FF"},
-            'bgcolor': "white",
-            'steps': [
-                {'range': [0, 30], 'color': "lightgreen"},
-                {'range': [30, 70], 'color': "orange"},
-                {'range': [70, 100], 'color': "red"}],
-            'threshold': {'line': {'color': "black", 'width': 4},
-                          'thickness': 0.75,
-                          'value': final_value}
-        }
-    )]) for val in steps]
+    fig = go.Figure()
 
-    fig = go.Figure(
-        data=[go.Indicator(
-            mode="gauge+number",
-            value=0,
-            title={'text': "Prediction Probability (%)", 'font': {'size': 24}},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': "#6C63FF"},
-                'bgcolor': "white",
-                'steps': [
-                    {'range': [0, 30], 'color': "lightgreen"},
-                    {'range': [30, 70], 'color': "orange"},
-                    {'range': [70, 100], 'color': "red"}],
-                'threshold': {'line': {'color': "black", 'width': 4},
-                              'thickness': 0.75,
-                              'value': final_value}
-            }
-        )],
-        frames=frames
-    )
+    # Background arcs (gauge colors)
+    fig.add_trace(go.Pie(
+        values=[30, 40, 30],
+        hole=0.7,
+        rotation=180,
+        text=["Low", "Medium", "High"],
+        textinfo="text",
+        textposition="inside",
+        marker_colors=["lightgreen", "orange", "red"],
+        direction="clockwise",
+        showlegend=False
+    ))
 
-    # Auto-play animation (no button needed)
+    # Function to create needle at given value
+    def gauge_needle(value, radius=0.6):
+        theta = (1 - value / 100) * 180
+        x = radius * np.cos(np.radians(theta))
+        y = radius * np.sin(np.radians(theta))
+        return go.Scatter(
+            x=[0, x], y=[0, y],
+            mode="lines+markers",
+            line=dict(color="black", width=4),
+            marker=dict(size=[0, 12], color="black"),
+            showlegend=False
+        )
+
+    # Frames for animation
+    steps = np.linspace(0, final_value, 40)
+    frames = []
+    for step in steps:
+        frames.append(go.Frame(data=[gauge_needle(step)], name=str(step)))
+
+    # Initial needle at 0
+    fig.add_trace(gauge_needle(0))
+    fig.frames = frames
+
+    # Layout
     fig.update_layout(
-        updatemenus=[dict(type="buttons",
-                          showactive=False,
-                          buttons=[dict(label="",
-                                        method="animate",
-                                        args=[None, {"frame": {"duration": 50, "redraw": True},
-                                                     "fromcurrent": True,
-                                                     "transition": {"duration": 0}}])])]
+        title="Prediction Probability: {}%".format(final_value),
+        xaxis=dict(range=[-1, 1], showticklabels=False, zeroline=False),
+        yaxis=dict(range=[0, 1], showticklabels=False, zeroline=False),
+        margin=dict(l=20, r=20, t=60, b=20),
+        updatemenus=[{
+            "type": "buttons",
+            "showactive": False,
+            "buttons": [{
+                "label": "Play",
+                "method": "animate",
+                "args": [None, {"frame": {"duration": 50, "redraw": True},
+                                "fromcurrent": True,
+                                "transition": {"duration": 0}}]
+            }]
+        }]
     )
 
     st.plotly_chart(fig, use_container_width=True)
