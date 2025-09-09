@@ -3,12 +3,21 @@ import numpy as np
 import pickle
 import plotly.graph_objects as go
 
-# ---------- Load Model and Scaler ----------
+# ---------- Load Model, Scaler, and Encoder ----------
 with open('model/churn_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
 with open('model/scaler.pkl', 'rb') as f:
     scaler = pickle.load(f)
+
+# ⚠️ Encoder ko training ke waqt save kiya tha to use bhi load karo
+try:
+    with open('model/encoder.pkl', 'rb') as f:
+        encoder = pickle.load(f)
+    use_encoder = True
+except:
+    encoder = None
+    use_encoder = False
 
 # ---------- Page Config and Styling ----------
 st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
@@ -58,32 +67,44 @@ if balance > 200000 or estimated_salary > 150000:
 # ---------- Prediction ----------
 if st.button("🚀 Predict Churn"):
 
-    # Encode categorical variables
-    geography_map = {"France": 0, "Spain": 1, "Germany": 2}
-    gender_map = {"Male": 1, "Female": 0}
+    # Prepare input data
+    if use_encoder:
+        # If OneHotEncoder was used in training
+        categorical = [[geography, gender]]
+        categorical_encoded = encoder.transform(categorical).toarray()
 
-    input_data = np.array([[credit_score,
-                            geography_map[geography],
-                            gender_map[gender],
-                            age,
-                            tenure,
-                            balance,
-                            num_products,
-                            has_credit_card,
-                            is_active_member,
-                            estimated_salary]])
+        numerical = np.array([[credit_score, age, tenure, balance,
+                               num_products, has_credit_card, is_active_member, estimated_salary]])
+
+        final_input = np.hstack((numerical, categorical_encoded))
+
+    else:
+        # Manual mapping (must match training!)
+        geography_map = {"France": 0, "Spain": 1, "Germany": 2}
+        gender_map = {"Male": 1, "Female": 0}
+
+        final_input = np.array([[credit_score,
+                                 geography_map[geography],
+                                 gender_map[gender],
+                                 age,
+                                 tenure,
+                                 balance,
+                                 num_products,
+                                 has_credit_card,
+                                 is_active_member,
+                                 estimated_salary]])
 
     # Scale the input data
-    input_data_scaled = scaler.transform(input_data)
+    input_scaled = scaler.transform(final_input)
 
     # Prediction
-    prediction = model.predict(input_data_scaled)[0]
-    prediction_prob = model.predict_proba(input_data_scaled)[0][1]  # Probability of class 1
+    prediction = model.predict(input_scaled)[0]
+    prediction_prob = model.predict_proba(input_scaled)[0][1]  # Probability of class 1
 
     # Debugging info
     with st.expander("🔍 See raw prediction data"):
-        st.write("Input Data:", input_data)
-        st.write("Scaled Data:", input_data_scaled)
+        st.write("Final Input (before scaling):", final_input)
+        st.write("Scaled Input:", input_scaled)
         st.write("Prediction Probability:", prediction_prob)
 
     # Show result
@@ -94,25 +115,58 @@ if st.button("🚀 Predict Churn"):
         st.success("🟢 This customer is **not likely to churn**.")
         status = "Low Risk"
 
-    # ---------- Gauge Chart ----------
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=round(prediction_prob * 100, 2),
-        delta={'reference': 50, 'increasing': {'color': "red"}, 'decreasing': {'color': "green"}},
+    # ---------- Animated Gauge Chart ----------
+    final_value = round(prediction_prob * 100, 2)
+
+    steps = np.linspace(0, final_value, num=30)  # 30 frames
+    frames = [go.Frame(data=[go.Indicator(
+        mode="gauge+number",
+        value=val,
         title={'text': "Prediction Probability (%)", 'font': {'size': 24}},
         gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkgray"},
+            'axis': {'range': [0, 100]},
             'bar': {'color': "#6C63FF"},
             'bgcolor': "white",
             'steps': [
                 {'range': [0, 30], 'color': "lightgreen"},
                 {'range': [30, 70], 'color': "orange"},
                 {'range': [70, 100], 'color': "red"}],
-            'threshold': {
-                'line': {'color': "black", 'width': 4},
-                'thickness': 0.75,
-                'value': prediction_prob * 100}
+            'threshold': {'line': {'color': "black", 'width': 4},
+                          'thickness': 0.75,
+                          'value': final_value}
         }
-    ))
+    )]) for val in steps]
+
+    fig = go.Figure(
+        data=[go.Indicator(
+            mode="gauge+number",
+            value=0,
+            title={'text': "Prediction Probability (%)", 'font': {'size': 24}},
+            gauge={
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "#6C63FF"},
+                'bgcolor': "white",
+                'steps': [
+                    {'range': [0, 30], 'color': "lightgreen"},
+                    {'range': [30, 70], 'color': "orange"},
+                    {'range': [70, 100], 'color': "red"}],
+                'threshold': {'line': {'color': "black", 'width': 4},
+                              'thickness': 0.75,
+                              'value': final_value}
+            }
+        )],
+        frames=frames
+    )
+
+    # Auto-play animation (no button needed)
+    fig.update_layout(
+        updatemenus=[dict(type="buttons",
+                          showactive=False,
+                          buttons=[dict(label="",
+                                        method="animate",
+                                        args=[None, {"frame": {"duration": 50, "redraw": True},
+                                                     "fromcurrent": True,
+                                                     "transition": {"duration": 0}}])])]
+    )
 
     st.plotly_chart(fig, use_container_width=True)
